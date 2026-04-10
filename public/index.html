@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>热点追踪器（真实数据）</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-black text-white p-6">
+
+<h1 class="text-2xl mb-6">🔥 热点追踪器（真实数据）</h1>
+
+<div class="space-x-2 mb-6">
+  <button onclick="loadData('douyin')" class="bg-red-500 px-4 py-2 rounded">抖音</button>
+  <button onclick="loadData('weibo')" class="bg-blue-500 px-4 py-2 rounded">微博</button>
+  <button onclick="loadData('network')" class="bg-green-500 px-4 py-2 rounded">全网</button>
+</div>
+
+<div id="list">加载中...</div>
+
+<script>
+async function loadData(type = 'douyin') {
+  const list = document.getElementById('list');
+  list.innerHTML = '加载中...';
+
+  try {
+    const res = await fetch(`/api/hot?type=${type}`);
+    const data = await res.json();
+
+    if (!data.success) {
+      throw new Error(data.message);
+    }
+
+    list.innerHTML = data.list.map(item => `
+      <div
+        class="flex justify-between border-b border-gray-700 py-3 cursor-pointer hover:bg-gray-900 px-2 rounded"
+        onclick="openDetail('${encodeURIComponent(item.title)}')"
+      >
+        <span>${item.rank}. ${item.title}</span>
+        <span class="text-red-400">${item.hot}</span>
+      </div>
+    `).join('');
+
+  } catch (err) {
+    list.innerHTML = `<div class="text-red-400">失败：${err.message}</div>`;
+  }
+}
+
+function openDetail(title) {
+  const keyword = decodeURIComponent(title);
+  const url = `https://www.douyin.com/search/${encodeURIComponent(keyword)}`;
+  window.open(url, '_blank');
+}
+
+loadData();
+</script>
+
+</body>
+</html>

@@ -1,59 +1,419 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<title>热点追踪器（真实数据）</title>
-<script src="https://cdn.tailwindcss.com"></script>
-</head>
-
-<body class="bg-black text-white p-6">
-
-<h1 class="text-2xl mb-6">🔥 热点追踪器（真实数据）</h1>
-
-<div class="space-x-2 mb-6">
-  <button onclick="loadData('douyin')" class="bg-red-500 px-4 py-2 rounded">抖音</button>
-  <button onclick="loadData('weibo')" class="bg-blue-500 px-4 py-2 rounded">微博</button>
-  <button onclick="loadData('network')" class="bg-green-500 px-4 py-2 rounded">全网</button>
-</div>
-
-<div id="list">加载中...</div>
-
-<script>
-async function loadData(type = 'douyin') {
-  const list = document.getElementById('list');
-  list.innerHTML = '加载中...';
-
-  try {
-    const res = await fetch(`/api/hot?type=${type}`);
-    const data = await res.json();
-
-    if (!data.success) {
-      throw new Error(data.message);
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>热点追踪器 | 炫酷版</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: "Inter", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(255, 0, 80, 0.18), transparent 30%),
+        radial-gradient(circle at top right, rgba(0, 242, 234, 0.18), transparent 30%),
+        linear-gradient(135deg, #05060a 0%, #0b0f19 45%, #111827 100%);
+      color: #fff;
+      min-height: 100vh;
+      overflow-x: hidden;
     }
 
-    list.innerHTML = data.list.map(item => `
-      <div
-        class="flex justify-between border-b border-gray-700 py-3 cursor-pointer hover:bg-gray-900 px-2 rounded"
-        onclick="openDetail('${encodeURIComponent(item.title)}')"
-      >
-        <span>${item.rank}. ${item.title}</span>
-        <span class="text-red-400">${item.hot}</span>
+    .grid-bg {
+      background-image:
+        linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+      background-size: 42px 42px;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.28);
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #ff0050 0%, #00f2ea 55%, #ff0050 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-size: 200% auto;
+      animation: shine 4s linear infinite;
+    }
+
+    @keyframes shine {
+      to { background-position: 200% center; }
+    }
+
+    .tab-btn {
+      transition: all 0.25s ease;
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, rgba(255,0,80,0.18), rgba(0,242,234,0.18));
+      color: #fff;
+      border-color: rgba(255,255,255,0.16);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.06) inset;
+    }
+
+    .hot-item {
+      transition: all 0.25s ease;
+      border-left: 3px solid transparent;
+    }
+
+    .hot-item:hover {
+      transform: translateX(6px);
+      border-left-color: #ff0050;
+      background: rgba(255,255,255,0.07);
+    }
+
+    .rank-1 { color: #ff0050; text-shadow: 0 0 12px rgba(255,0,80,0.45); }
+    .rank-2 { color: #ff7a7a; }
+    .rank-3 { color: #ffb347; }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 9999px;
+      background: #00f2ea;
+      display: inline-block;
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0%,100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.25); opacity: 0.45; }
+    }
+
+    .loading-bar {
+      height: 64px;
+      border-radius: 16px;
+      background: linear-gradient(
+        90deg,
+        rgba(255,255,255,0.04) 25%,
+        rgba(255,255,255,0.10) 50%,
+        rgba(255,255,255,0.04) 75%
+      );
+      background-size: 200% 100%;
+      animation: loading 1.3s infinite linear;
+    }
+
+    @keyframes loading {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .btn-glow:hover {
+      box-shadow: 0 0 22px rgba(255,0,80,0.18);
+    }
+  </style>
+</head>
+<body class="grid-bg">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-12">
+    <!-- 顶部 -->
+    <div class="glass rounded-3xl px-6 py-5 mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-cyan-400 flex items-center justify-center text-2xl font-black shadow-lg">
+          热
+        </div>
+        <div>
+          <h1 class="text-3xl md:text-4xl font-black tracking-tight">
+            <span class="gradient-text">热点追踪器</span>
+          </h1>
+          <p class="text-sm text-gray-300 mt-1">真实数据 / 在线更新 / 一键跳转搜索</p>
+        </div>
       </div>
-    `).join('');
 
-  } catch (err) {
-    list.innerHTML = `<div class="text-red-400">失败：${err.message}</div>`;
-  }
-}
+      <div class="flex items-center gap-3 text-sm text-gray-300">
+        <span class="pulse-dot"></span>
+        <span id="statusText">实时运行中</span>
+        <span class="hidden md:inline text-gray-500">|</span>
+        <span id="updateTime">上次刷新：--</span>
+      </div>
+    </div>
 
-function openDetail(title) {
-  const keyword = decodeURIComponent(title);
-  const url = `https://www.douyin.com/search/${encodeURIComponent(keyword)}`;
-  window.open(url, '_blank');
-}
+    <!-- tab -->
+    <div class="flex flex-wrap gap-3 mb-8">
+      <button id="tab-douyin" class="tab-btn active glass px-5 py-2.5 rounded-xl text-sm border border-white/10 btn-glow" onclick="switchTab('douyin')">抖音热榜</button>
+      <button id="tab-weibo" class="tab-btn glass px-5 py-2.5 rounded-xl text-sm border border-white/10 btn-glow" onclick="switchTab('weibo')">微博热搜</button>
+      <button id="tab-network" class="tab-btn glass px-5 py-2.5 rounded-xl text-sm border border-white/10 btn-glow" onclick="switchTab('network')">全网热点</button>
+      <button class="glass px-5 py-2.5 rounded-xl text-sm border border-white/10 ml-auto btn-glow" onclick="refreshNow()">手动刷新</button>
+    </div>
 
-loadData();
-</script>
+    <div class="grid lg:grid-cols-3 gap-6">
+      <!-- 左侧列表 -->
+      <div class="lg:col-span-2 glass rounded-3xl p-5 md:p-6">
+        <div class="flex items-center justify-between mb-5">
+          <div>
+            <h2 id="listTitle" class="text-xl font-bold">抖音热榜</h2>
+            <p class="text-sm text-gray-400 mt-1">点击任意一条，直接打开搜索页</p>
+          </div>
+          <div class="text-right">
+            <div class="text-xs text-gray-500">数据状态</div>
+            <div id="apiStatus" class="text-sm text-cyan-300 mt-1">正常</div>
+          </div>
+        </div>
 
+        <div id="list" class="space-y-3 max-h-[680px] overflow-y-auto pr-1">
+          <div class="space-y-3">
+            <div class="loading-bar"></div>
+            <div class="loading-bar"></div>
+            <div class="loading-bar"></div>
+            <div class="loading-bar"></div>
+            <div class="loading-bar"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧统计 -->
+      <div class="space-y-6">
+        <div class="glass rounded-3xl p-6">
+          <h3 class="text-lg font-bold mb-4">热度趋势</h3>
+          <div class="h-[280px]">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+
+        <div class="glass rounded-3xl p-6">
+          <h3 class="text-lg font-bold mb-4">数据概览</h3>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="rounded-2xl bg-white/5 p-4">
+              <div id="statCount" class="text-2xl font-black text-pink-400">--</div>
+              <div class="text-sm text-gray-400 mt-1">话题数量</div>
+            </div>
+            <div class="rounded-2xl bg-white/5 p-4">
+              <div id="statTop" class="text-2xl font-black text-cyan-300">--</div>
+              <div class="text-sm text-gray-400 mt-1">榜首热度</div>
+            </div>
+            <div class="rounded-2xl bg-white/5 p-4">
+              <div id="statTotal" class="text-2xl font-black text-yellow-300">--</div>
+              <div class="text-sm text-gray-400 mt-1">总热度</div>
+            </div>
+            <div class="rounded-2xl bg-white/5 p-4">
+              <div id="statPlatform" class="text-2xl font-black text-green-300">抖音</div>
+              <div class="text-sm text-gray-400 mt-1">当前平台</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass rounded-3xl p-6">
+          <h3 class="text-lg font-bold mb-4">使用说明</h3>
+          <div class="text-sm text-gray-300 leading-7">
+            <p>1. 点击上方标签切换平台。</p>
+            <p>2. 点击列表可跳转搜索。</p>
+            <p>3. 页面每 60 秒自动刷新一次。</p>
+            <p>4. 如果榜单没变，通常是数据源本身未更新。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentType = 'douyin';
+    let chartInstance = null;
+    let currentList = [];
+
+    const titleMap = {
+      douyin: '抖音热榜',
+      weibo: '微博热搜',
+      network: '全网热点'
+    };
+
+    const platformMap = {
+      douyin: '抖音',
+      weibo: '微博',
+      network: '全网'
+    };
+
+    function formatNumber(num) {
+      const n = Number(num) || 0;
+      if (n >= 100000000) return (n / 100000000).toFixed(1) + '亿';
+      if (n >= 10000) return (n / 10000).toFixed(1) + '万';
+      return String(n);
+    }
+
+    function getRankClass(index) {
+      if (index === 0) return 'rank-1';
+      if (index === 1) return 'rank-2';
+      if (index === 2) return 'rank-3';
+      return 'text-gray-500';
+    }
+
+    function getBadge(index) {
+      if (index === 0) return '<span class="text-[10px] px-2 py-1 rounded-full bg-pink-500/20 text-pink-300">爆</span>';
+      if (index < 3) return '<span class="text-[10px] px-2 py-1 rounded-full bg-red-500/20 text-red-300">热</span>';
+      if (index < 6) return '<span class="text-[10px] px-2 py-1 rounded-full bg-cyan-500/20 text-cyan-300">新</span>';
+      return '';
+    }
+
+    async function loadData(type = currentType) {
+      currentType = type;
+      const listEl = document.getElementById('list');
+      const updateTime = document.getElementById('updateTime');
+      const apiStatus = document.getElementById('apiStatus');
+
+      apiStatus.textContent = '加载中...';
+      listEl.innerHTML = `
+        <div class="space-y-3">
+          <div class="loading-bar"></div>
+          <div class="loading-bar"></div>
+          <div class="loading-bar"></div>
+          <div class="loading-bar"></div>
+          <div class="loading-bar"></div>
+        </div>
+      `;
+
+      try {
+        const res = await fetch(`/api/hot?type=${type}&t=${Date.now()}`, {
+          cache: 'no-store'
+        });
+        const data = await res.json();
+
+        if (!data.success) {
+          throw new Error(data.message || '获取失败');
+        }
+
+        currentList = data.list || [];
+        renderList(currentList);
+        renderStats(currentList, type);
+        renderChart(currentList);
+
+        document.getElementById('listTitle').textContent = titleMap[type];
+        apiStatus.textContent = '正常';
+        apiStatus.className = 'text-sm text-cyan-300 mt-1';
+
+        const now = new Date();
+        updateTime.textContent = `上次刷新：${now.toLocaleTimeString()}`;
+      } catch (err) {
+        apiStatus.textContent = '异常';
+        apiStatus.className = 'text-sm text-red-400 mt-1';
+        listEl.innerHTML = `
+          <div class="rounded-2xl bg-red-500/10 border border-red-400/20 p-6 text-center">
+            <div class="text-red-300 text-lg font-bold mb-2">加载失败</div>
+            <div class="text-gray-300 text-sm mb-4">${err.message}</div>
+            <button onclick="loadData(currentType)" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition">
+              重试
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    function renderList(list) {
+      const listEl = document.getElementById('list');
+
+      listEl.innerHTML = list.map((item, index) => `
+        <div class="hot-item flex items-center justify-between p-4 rounded-2xl bg-white/5 cursor-pointer"
+             onclick="openDetail('${encodeURIComponent(item.title)}')">
+          <div class="flex items-center gap-4 flex-1 min-w-0">
+            <div class="w-9 text-center text-lg font-black ${getRankClass(index)}">
+              ${item.rank || index + 1}
+            </div>
+
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <div class="font-medium text-white truncate">${item.title}</div>
+                ${getBadge(index)}
+              </div>
+              <div class="text-sm text-gray-400">
+                热度：<span class="text-pink-400 font-semibold">${formatNumber(item.hot)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ml-4 text-gray-500 text-sm">查看</div>
+        </div>
+      `).join('');
+    }
+
+    function renderStats(list, type) {
+      const total = list.reduce((sum, item) => sum + (Number(item.hot) || 0), 0);
+      const top = list[0]?.hot || 0;
+
+      document.getElementById('statCount').textContent = list.length;
+      document.getElementById('statTop').textContent = formatNumber(top);
+      document.getElementById('statTotal').textContent = formatNumber(total);
+      document.getElementById('statPlatform').textContent = platformMap[type];
+    }
+
+    function renderChart(list) {
+      const ctx = document.getElementById('trendChart').getContext('2d');
+      const top10 = list.slice(0, 10);
+
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: top10.map((_, i) => `${i + 1}位`),
+          datasets: [{
+            data: top10.map(item => Number(item.hot) || 0),
+            borderColor: '#ff0050',
+            backgroundColor: 'rgba(255,0,80,0.12)',
+            tension: 0.35,
+            fill: true,
+            pointRadius: 3,
+            pointHoverRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#9ca3af' },
+              grid: { display: false }
+            },
+            y: {
+              ticks: {
+                color: '#9ca3af',
+                callback: function(value) {
+                  return formatNumber(value);
+                }
+              },
+              grid: {
+                color: 'rgba(255,255,255,0.08)'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function switchTab(type) {
+      currentType = type;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(`tab-${type}`).classList.add('active');
+      loadData(type);
+    }
+
+    function refreshNow() {
+      loadData(currentType);
+    }
+
+    function openDetail(title) {
+      const keyword = decodeURIComponent(title);
+      let url = '';
+
+      if (currentType === 'weibo') {
+        url = `https://s.weibo.com/weibo?q=${encodeURIComponent(keyword)}`;
+      } else {
+        url = `https://www.douyin.com/search/${encodeURIComponent(keyword)}`;
+      }
+
+      window.open(url, '_blank');
+    }
+
+    loadData('douyin');
+
+    setInterval(() => {
+      loadData(currentType);
+    }, 60000);
+  </script>
 </body>
 </html>

@@ -5,8 +5,7 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const TIANAPI_KEY = process.env.TIANAPI_KEY;
-
+const TIANAPI_KEY = process.env.TIANAPI_KEY || '5d740f46f713d2a06be20b5e7af1d052';
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 
